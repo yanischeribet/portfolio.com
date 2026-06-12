@@ -1916,7 +1916,7 @@
       <a href="#" onclick="document.getElementById('cv-overlay').classList.add('open'); return false;" class="btn btn-secondary">&#128196; Mon Curriculum Vitae</a>
     </div>
   </div>
-  <div class="scroll-indicator">&#8595; Faites d&eacute;filer</div>
+  <div class="scroll-indicator" onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'})" style="cursor:pointer;" role="button" aria-label="Faire défiler vers le bas">&#8595; Faites d&eacute;filer</div>
 </section>
 
 <section id="about">
@@ -2610,13 +2610,13 @@
 <section id="contact">
   <div class="contact-card reveal">
     <h3>Restons en contact</h3>
-    <p>N'h&eacute;sitez pas &agrave; me contacter, je ne mords pas &#127967;</p>
+    <p>N'h&eacute;sitez pas &agrave; me contacter, je ne mords pas &#129377;</p>
     <div class="contact-links">
       <a href="https://linkedin.com/in/yanis-cheribet-481894273" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
         &#128188; LinkedIn
       </a>
       <a href="mailto:yanischeribet@gmail.com" class="btn btn-secondary">
-        &#9993;&#65039; yanischeribet@gmail.com
+        &#9993;&#65039; Mail
       </a>
     </div>
   </div>
@@ -2706,8 +2706,29 @@
     }
   }
   
+  let mouseX = -999, mouseY = -999;
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+  });
+  canvas.addEventListener('mouseleave', () => { mouseX = -999; mouseY = -999; });
+
+  function drawLantern() {
+    if (mouseX < 0) return;
+    const isDark = document.body.getAttribute('data-theme') === 'dark';
+    if (!isDark) return;
+    const grad = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 180);
+    grad.addColorStop(0,   'rgba(45,212,191,0.22)');
+    grad.addColorStop(0.5, 'rgba(45,212,191,0.06)');
+    grad.addColorStop(1,   'rgba(45,212,191,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
   function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawLantern();
     particles.forEach(p => { p.update(); p.draw(); });
     drawConnections();
     requestAnimationFrame(animate);

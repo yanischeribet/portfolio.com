@@ -299,12 +299,13 @@
   }
   
   #particle-canvas {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 1;
+    z-index: 0;
+    pointer-events: none;
   }
   
   .hero-gradient {
@@ -463,6 +464,7 @@
     max-width: 1280px;
     margin: 0 auto;
     position: relative;
+    z-index: 1;
   }
   
   .section-header {
@@ -568,6 +570,8 @@
     max-width: none;
     padding: 6rem 2rem;
     transition: background 0.4s ease;
+    position: relative;
+    z-index: 1;
   }
   
   .formation-inner {
@@ -1295,6 +1299,8 @@
     max-width: none;
     padding: 6rem 2rem;
     transition: background 0.4s ease;
+    position: relative;
+    z-index: 1;
   }
   
   .competences-inner {
@@ -1611,6 +1617,8 @@
   #contact {
     text-align: center;
     padding: 6rem 2rem;
+    position: relative;
+    z-index: 1;
   }
   
   .contact-card {
@@ -1667,6 +1675,8 @@
     max-width: none;
     padding: 6rem 2rem;
     transition: background 0.4s ease;
+    position: relative;
+    z-index: 1;
   }
   
   .soutenance-inner {
@@ -2645,38 +2655,81 @@
     body.setAttribute('data-theme', newTheme);
   });
   
+  // ── Particle system — full page ──
   const canvas = document.getElementById('particle-canvas');
   const ctx = canvas.getContext('2d');
   let particles = [];
-  
+
   function resizeCanvas() {
     canvas.width = window.innerWidth;
-    canvas.height = document.getElementById('hero').offsetHeight;
+    canvas.height = window.innerHeight;
   }
   resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
-  
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    // redistribute particles on resize
+    particles.forEach(p => {
+      p.originX = Math.random() * canvas.width;
+      p.originY = Math.random() * canvas.height;
+      p.x = p.originX;
+      p.y = p.originY;
+    });
+  });
+
   function getParticleColor() {
     return getComputedStyle(document.body).getPropertyValue('--particle-color').trim();
   }
-  
+
+  // Mouse position in viewport coords
+  let mouseX = -9999, mouseY = -9999;
+  window.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+  window.addEventListener('mouseleave', () => { mouseX = -9999; mouseY = -9999; });
+
+  const REPEL_RADIUS = 90;   // px around cursor where repulsion starts
+  const REPEL_FORCE  = 18;   // max displacement in px (subtle)
+  const EASE         = 0.06; // how fast particles ease back (lower = smoother)
+
   class Particle {
     constructor() {
-      this.x = Math.random() * canvas.width;
-      this.y = Math.random() * canvas.height;
+      this.originX = Math.random() * canvas.width;
+      this.originY = Math.random() * canvas.height;
+      this.x  = this.originX;
+      this.y  = this.originY;
       this.vx = (Math.random() - 0.5) * 0.3;
       this.vy = (Math.random() - 0.5) * 0.3;
-      this.radius = Math.random() * 2 + 1;
+      this.radius  = Math.random() * 2 + 1;
       this.opacity = Math.random() * 0.5 + 0.2;
     }
-    
+
     update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
-      if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+      // Natural drift on the origin point
+      this.originX += this.vx;
+      this.originY += this.vy;
+      if (this.originX < 0 || this.originX > canvas.width)  this.vx *= -1;
+      if (this.originY < 0 || this.originY > canvas.height) this.vy *= -1;
+
+      // Repulsion: push away from cursor (viewport coords = canvas coords since canvas is fixed)
+      const dx = this.x - mouseX;
+      const dy = this.y - mouseY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      let targetX = this.originX;
+      let targetY = this.originY;
+
+      if (dist < REPEL_RADIUS && dist > 0) {
+        const force  = (1 - dist / REPEL_RADIUS) * REPEL_FORCE;
+        targetX = this.originX + (dx / dist) * force;
+        targetY = this.originY + (dy / dist) * force;
+      }
+
+      // Smooth easing toward target
+      this.x += (targetX - this.x) * EASE;
+      this.y += (targetY - this.y) * EASE;
     }
-    
+
     draw() {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
@@ -2684,9 +2737,10 @@
       ctx.fill();
     }
   }
-  
-  for (let i = 0; i < 80; i++) particles.push(new Particle());
-  
+
+  // More particles to cover full page density
+  for (let i = 0; i < 130; i++) particles.push(new Particle());
+
   function drawConnections() {
     const color = getParticleColor();
     for (let i = 0; i < particles.length; i++) {
@@ -2705,22 +2759,13 @@
       }
     }
   }
-  
-  let mouseX = -999, mouseY = -999;
-  canvas.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
-  });
-  canvas.addEventListener('mouseleave', () => { mouseX = -999; mouseY = -999; });
 
   function drawLantern() {
-    if (mouseX < 0) return;
     const isDark = document.body.getAttribute('data-theme') === 'dark';
-    if (!isDark) return;
+    if (!isDark || mouseX < -999) return;
     const grad = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 180);
-    grad.addColorStop(0,   'rgba(45,212,191,0.22)');
-    grad.addColorStop(0.5, 'rgba(45,212,191,0.06)');
+    grad.addColorStop(0,   'rgba(45,212,191,0.18)');
+    grad.addColorStop(0.5, 'rgba(45,212,191,0.05)');
     grad.addColorStop(1,   'rgba(45,212,191,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
